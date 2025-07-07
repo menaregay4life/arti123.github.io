@@ -15,7 +15,7 @@ io.on('connection', (socket) => {
     });
 });
 
-const PORT = process.env.PORT || 4000; // use 6000 locally
+const PORT = process.env.PORT || 10000; // use 6000 locally
 http.listen(PORT, () => {
     console.log(`listening on *:${PORT}`);
 });

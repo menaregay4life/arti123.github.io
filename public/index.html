@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Home</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #483D8B;
+            color: #f1f1f1;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background: #232a34;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px #0008;
+            padding: 32px;
+        }
+        h1 {
+            text-align: center;
+            color: #4fc3f7;
+            margin-bottom: 24px;
+        }
+        #status {
+            text-align: center;
+            margin-bottom: 16px;
+            font-weight: bold;
+        }
+        #ipInfo {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            color: #a0c4ff;
+        }
+        ul#users {
+            list-style: none;
+            padding: 0;
+        }
+        ul#users li {
+            background: #293241;
+            margin: 8px 0;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 1.1em;
+            transition: background 0.2s;
+        }
+        ul#users li:hover {
+            background: #3a475c;
+        }
+        /* Buttons styling */
+        #videoBtn {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: #4fc3f7;
+            color: #fff;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            z-index: 1000;
+        }
+        #chatBtn {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #4fc3f7;
+            color: #fff;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            z-index: 1000;
+        }
+        #videoBtn:hover, #chatBtn:hover {
+            background: #3a9bdc;
+        }
+    </style>
+</head>
+<body>
+    <!-- Video Button top-left -->
+    
+
+    <!-- Chat Button top-right -->
+    <a id="chatBtn" href="http://echolabs.surge.sh/chat" title="Go to Chat">Chat</a>
+
+    <div class="container">
+        <h1>Home</h1>
+        <div id="status">Connecting to server...</div>
+        <div id="ipInfo">Loading your IP and location info...</div>
+        <ul id="users"></ul>
+    </div>
+
+    <script>
+        // Show user IP and location via external API
+        async function fetchIPInfo() {
+            try {
+                const res = await fetch('https://ipapi.co/json/');
+                if (!res.ok) throw new Error('Network response not ok');
+                const data = await res.json();
+                const ipInfoDiv = document.getElementById('ipInfo');
+                ipInfoDiv.textContent = `Your IP: ${data.ip} | Location: ${data.city}, ${data.region}, ${data.country_name}`;
+            } catch (e) {
+                document.getElementById('ipInfo').textContent = 'Could not fetch IP info.';
+            }
+        }
+
+        fetchIPInfo();
+
+        let connected = false;
+        const statusDiv = document.getElementById('status');
+        const usersList = document.getElementById('users');
+        let geoWatchId = null;
+
+        function enableApp() {
+            if (navigator.geolocation) {
+                geoWatchId = navigator.geolocation.watchPosition((position) => {
+                    socket.emit('sendLocation', {
+                        lat: position.coords.latitude,
+                        lon: position.coords.longitude
+                    });
+                }, (err) => {
+                    statusDiv.textContent = 'Location access denied.';
+                    statusDiv.style.color = '#ff5252';
+                });
+            } else {
+                statusDiv.textContent = 'Geolocation not supported by your browser.';
+                statusDiv.style.color = '#ffb300';
+            }
+        }
+
+        function disableApp() {
+            usersList.innerHTML = '';
+            if (geoWatchId !== null) {
+                navigator.geolocation.clearWatch(geoWatchId);
+                geoWatchId = null;
+            }
+        }
+
+        const socket = io(window.location.origin, {
+            timeout: 2000,
+            reconnection: false
+        });
+
+        socket.on('connect', () => {
+            connected = true;
+            statusDiv.textContent = 'Connected to server.';
+            statusDiv.style.color = '#4fc3f7';
+            enableApp();
+        });
+
+       
+        function updateUsers(users) {
+            usersList.innerHTML = '';
+            Object.entries(users).forEach(([id, loc]) => {
+                const li = document.createElement('li');
+                li.textContent = `User ${id.substring(0, 5)}: Lat ${loc.lat}, Lon ${loc.lon}`;
+                usersList.appendChild(li);
+            });
+        }
+
+        socket.on('usersUpdate', (users) => {
+            if (connected) {
+                updateUsers(users);
+            }
+        });
+    </script>
+</body>
+</html>
+
